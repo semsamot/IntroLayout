@@ -9,7 +9,7 @@ Features
 - Arrow cursor drawer
 - Animate on target view
 - Full control over targets
-- Highly customizebale!
+- Highly customizable!
 
 Usage
 ===
