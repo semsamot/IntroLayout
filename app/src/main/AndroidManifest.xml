@@ -2,8 +2,8 @@
     package="info.semsamot.introlayout">
 
     <application android:allowBackup="true"
-        android:label="@string/app_name"
-        android:theme="@style/AppTheme">
+        android:label="@string/app_name">
+        <!--android:theme="@style/AppTheme"-->
 
     </application>
 

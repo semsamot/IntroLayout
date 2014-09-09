@@ -8,37 +8,61 @@
     android:clickable="true"
     >
 
-    <LinearLayout
+    <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:layout_alignParentBottom="true"
         android:layout_centerHorizontal="true"
         android:background="#ffffffff"
+        android:id="@+id/content_layout"
         >
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_margin="10dp"
+            android:layout_alignParentTop="true"
             android:textColor="#c7000000"
             android:id="@+id/txt_content"
             />
 
-        <Button
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:layout_marginBottom="10dp"
-            android:paddingLeft="10dp"
-            android:paddingRight="10dp"
-            android:layout_gravity="center_horizontal"
-            android:background="#e51c23"
-            android:text="OK"
-            android:textColor="#fff"
-            android:id="@+id/btn_next"
-            />
+            android:layout_centerHorizontal="true"
+            android:layout_below="@+id/txt_content"
+            >
+            <Button
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginRight="5dp"
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="10dp"
+                android:padding="10dp"
+                android:layout_gravity="center_horizontal"
+                android:background="#e51c23"
+                android:text="Next"
+                android:textColor="#fff"
+                android:id="@+id/btn_next"
+                />
 
-    </LinearLayout>
+            <Button
+                android:visibility="gone"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="5dp"
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="10dp"
+                android:padding="10dp"
+                android:layout_gravity="center_horizontal"
+                android:background="#e51c23"
+                android:text="Previous"
+                android:textColor="#fff"
+                android:id="@+id/btn_previous"
+                />
+        </LinearLayout>
+
+    </RelativeLayout>
 
 </info.semsamot.introlayout.IntroLayout>

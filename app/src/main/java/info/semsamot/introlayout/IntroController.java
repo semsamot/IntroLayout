@@ -25,6 +25,8 @@ import android.widget.TextView;
 
 public class IntroController {
 
+    private final IntroLayout introLayout;
+
     private Activity mActivity;
     private int layoutResId;
     private ViewGroup rootView;
@@ -39,15 +41,14 @@ public class IntroController {
 
     public IntroController(Activity mActivity, int layoutResId) {
         this.mActivity = mActivity;
-        this.layoutResId = layoutResId;
         this.rootView = (ViewGroup) mActivity.getWindow().getDecorView().getRootView();
+
+        this.layoutResId = layoutResId;
+        this.introLayout = (IntroLayout) View.inflate(mActivity, layoutResId, null);
     }
 
     public void startShow()
     {
-        final IntroLayout introLayout =
-                (IntroLayout) View.inflate(mActivity, layoutResId, null);
-
         introLayout.animateTargetRect();
 
         introLayout.findViewById(R.id.btn_next).setOnClickListener(
@@ -107,6 +108,10 @@ public class IntroController {
 
         if (onShowChangeListener != null)
             onShowChangeListener.afterShowChanged(currentShowIndex);
+    }
+
+    public IntroLayout getIntroLayout() {
+        return introLayout;
     }
 
     public View[] getTargets() {
