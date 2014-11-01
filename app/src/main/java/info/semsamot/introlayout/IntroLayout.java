@@ -20,12 +20,15 @@ package info.semsamot.introlayout;
 
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
+import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.res.TypedArray;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.Region;
 import android.os.Build;
 import android.util.AttributeSet;
@@ -40,6 +43,13 @@ import android.widget.TextView;
 public class IntroLayout extends RelativeLayout {
 
     private static final String TAG = "info.semsamot.introlayout";
+
+    /*private static final int SHAPE_RECTANGLE = 0x01;
+    private static final int SHAPE_CIRCLE = 0x02;
+    private static final int SHAPE_HEXAGON = 0x03;*/
+
+    public enum ShapeType {SHAPE_RECTANGLE, SHAPE_CIRCLE, SHAPE_HEXAGON}
+
     private static final long DEFAULT_ANIMATION_DURATION = 500;
     private static final int DEFAULT_OVERLAY_COLOR = 0xc7000000;
 
@@ -47,19 +57,30 @@ public class IntroLayout extends RelativeLayout {
     private TextView txtContent;
     private Button btnNext, btnPrevious;
 
+    private IntroTarget introTarget;
+
+    private Path targetPath;
     private Rect targetRect;
     private Path arrowPath;
 
     private Paint mPaint;
-    private Paint targetRectPaint;
+    private Paint targetShapePaint;
+    private Paint targetHighlightPaint;
     private Paint arrowPathPaint;
     private Paint debugDrawPaint;
 
+    private ShapeType targetShapeType;
+
+    private int overlayColor;
+    private int targetHighlightColor;
+    private int targetShapeBorderColor;
+    private int arrowColor;
+    private int arrowStrokeWidth;
+
     private double degrees;
     private float strokeWidth;
+    private int highlightAlpha;
     private long animationSpeed;
-
-    private int overlayColor = DEFAULT_OVERLAY_COLOR;
 
     private boolean isArrowCurve = true;
     private boolean isDebugDraw = false;
@@ -70,15 +91,32 @@ public class IntroLayout extends RelativeLayout {
             ptx3, pty3;
 
     public IntroLayout(Context context) {
-        super(context);
+        this(context, null, 0);
     }
 
     public IntroLayout(Context context, AttributeSet attrs) {
-        super(context, attrs);
+        this(context, attrs, 0);
     }
 
     public IntroLayout(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
+
+        TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.IntroLayout, defStyle, 0);
+
+        this.overlayColor =
+                a.getColor(R.styleable.IntroLayout_overlay_color, DEFAULT_OVERLAY_COLOR);
+        this.targetHighlightColor =
+                a.getColor(R.styleable.IntroLayout_target_highlight_color, Color.WHITE);
+        this.targetShapeBorderColor =
+                a.getColor(R.styleable.IntroLayout_target_shape_border_color, Color.RED);
+        this.targetShapeType = ShapeType.values()[
+                a.getInt(R.styleable.IntroLayout_target_highlight_shape, 0)];
+        this.arrowColor =
+                a.getColor(R.styleable.IntroLayout_arrow_color, Color.YELLOW);
+        this.arrowStrokeWidth =
+                a.getInt(R.styleable.IntroLayout_arrow_stroke_width, 3);
+
+        a.recycle();
     }
 
     private void initChildren()
@@ -94,16 +132,22 @@ public class IntroLayout extends RelativeLayout {
         this.mPaint = new Paint();
         mPaint.setStyle(Paint.Style.FILL);
 
-        this.targetRectPaint = new Paint();
-        targetRectPaint.setStyle(Paint.Style.STROKE);
-        targetRectPaint.setStrokeWidth(4);
-        targetRectPaint.setColor(Color.RED);
+        this.targetShapePaint = new Paint();
+        targetShapePaint.setAntiAlias(true);
+        targetShapePaint.setStyle(Paint.Style.STROKE);
+        targetShapePaint.setStrokeWidth(4);
+        targetShapePaint.setColor(targetShapeBorderColor);
+
+        this.targetHighlightPaint = new Paint();
+        targetHighlightPaint.setStyle(Paint.Style.FILL);
+        targetHighlightPaint.setColor(targetHighlightColor);
+        targetHighlightPaint.setAlpha(highlightAlpha);
 
         this.arrowPathPaint = new Paint();
         arrowPathPaint.setAntiAlias(true);
         arrowPathPaint.setStyle(Paint.Style.STROKE);
-        arrowPathPaint.setStrokeWidth(3);
-        arrowPathPaint.setColor(Color.YELLOW);
+        arrowPathPaint.setStrokeWidth(arrowStrokeWidth);
+        arrowPathPaint.setColor(arrowColor);
 
         this.debugDrawPaint = new Paint();
 
@@ -239,10 +283,14 @@ public class IntroLayout extends RelativeLayout {
 
         if (targetRect != null && mPaint != null)
         {
-            targetRectPaint.setStrokeWidth(strokeWidth);
-            canvas.drawRect(targetRect, targetRectPaint);
+            targetHighlightPaint.setAlpha(highlightAlpha);
+            canvas.drawRect(targetRect, targetHighlightPaint);
 
-            canvas.clipRect(targetRect, Region.Op.DIFFERENCE);
+            targetShapePaint.setStrokeWidth(strokeWidth);
+            canvas.drawPath(targetPath, targetShapePaint);
+
+            canvas.clipPath(targetPath, Region.Op.DIFFERENCE);
+
             canvas.drawColor(overlayColor);
 
             canvas.drawPath(arrowPath, arrowPathPaint);
@@ -269,7 +317,7 @@ public class IntroLayout extends RelativeLayout {
         animateTargetRect(DEFAULT_ANIMATION_DURATION);
     }
 
-    public void animateTargetRect(long duration)
+    public void animateTargetRect(long repeatDuration)
     {
         if (Build.VERSION.SDK_INT < 11) return;
 
@@ -282,7 +330,18 @@ public class IntroLayout extends RelativeLayout {
                 postInvalidate();
             }
         });
-        strokeAnimator.setDuration(duration).start();
+        strokeAnimator.setDuration(repeatDuration).start();
+
+        ObjectAnimator alphaAnimator = ObjectAnimator.ofInt(this, "highlightAlpha", 0, 50);
+        alphaAnimator.setRepeatMode(ValueAnimator.REVERSE);
+        alphaAnimator.setRepeatCount(ValueAnimator.INFINITE);
+        alphaAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator valueAnimator) {
+                postInvalidate();
+            }
+        });
+        alphaAnimator.setDuration(repeatDuration).start();
     }
 
     public boolean isArrowCurve() {
@@ -317,6 +376,16 @@ public class IntroLayout extends RelativeLayout {
         return btnPrevious;
     }
 
+    public IntroTarget getIntroTarget() {
+        return introTarget;
+    }
+
+    public void setIntroTarget(IntroTarget introTarget) {
+        this.introTarget = introTarget;
+
+
+    }
+
     public Rect getTargetRect() {
         return targetRect;
     }
@@ -325,7 +394,10 @@ public class IntroLayout extends RelativeLayout {
         setTargetRect(targetView, true);
     }
 
-    public void setTargetRect(final View targetView, boolean waitForVisibleState) {
+    @SuppressLint("NewApi")
+    public void setTargetRect(final View targetView, boolean waitForVisibleState)
+    {
+        if (targetView == null) return;
 
         if (waitForVisibleState && !targetView.isShown())
         {
@@ -350,6 +422,7 @@ public class IntroLayout extends RelativeLayout {
 
     public void setTargetRect(Rect targetRect) {
         this.targetRect = targetRect;
+        setTargetPath();
 
         if (getWidth() != 0 && getHeight() != 0)
         {
@@ -357,9 +430,61 @@ public class IntroLayout extends RelativeLayout {
             applyContentLayoutAlignment();
         }
 
-
-
         postInvalidate();
+    }
+
+    public Path getTargetPath() {
+        return targetPath;
+    }
+
+    public void setTargetPath() {
+        targetPath = new Path();
+
+        int targetLeft = targetRect.left;
+        int targetRight = targetRect.right;
+
+        switch (targetShapeType)
+        {
+            case SHAPE_RECTANGLE:
+                targetPath.addRect(new RectF(targetRect), Path.Direction.CW);
+                break;
+            case SHAPE_CIRCLE:
+                int cx = targetLeft + (targetRect.width() / 2);
+                int cy = targetRect.top + (targetRect.height() / 2);
+                int radius = (targetRect.width() > targetRect.height())
+                        ? targetRect.width() / 2 : targetRect.height() / 2;
+                targetPath.addCircle(cx, cy, radius, Path.Direction.CW);
+                break;
+            case SHAPE_HEXAGON:
+                /*int edge = (targetRect.width() > targetRect.height())
+                        ? targetRect.width() / 2 : targetRect.height() / 2;*/
+                int edge = targetRect.height() / 2;
+                int pcy = targetRect.top + targetRect.height() / 2;
+
+                targetLeft += edge / 2;
+                targetRight -= edge / 2;
+
+                targetPath.moveTo(targetLeft, pcy - edge);
+
+                //      -----
+                targetPath.lineTo(targetRight, pcy - edge);
+                //            \
+                targetPath.lineTo(targetRight + edge / 2, pcy);
+                //            /
+                targetPath.lineTo(targetRight, pcy + edge);
+                //      -----
+                targetPath.lineTo(targetLeft, pcy + edge);
+                //     \
+                targetPath.lineTo(targetLeft - edge / 2, pcy);
+                //  /
+                targetPath.lineTo(targetLeft, pcy - edge);
+
+                break;
+        }
+    }
+
+    public void setTargetPath(Path targetPath) {
+        this.targetPath = targetPath;
     }
 
     private void applyContentLayoutAlignment()
@@ -385,6 +510,30 @@ public class IntroLayout extends RelativeLayout {
         this.overlayColor = overlayColor;
     }
 
+    public int getTargetHighlightColor() {
+        return targetHighlightColor;
+    }
+
+    public void setTargetHighlightColor(int targetHighlightColor) {
+        this.targetHighlightColor = targetHighlightColor;
+    }
+
+    public int getTargetShapeBorderColor() {
+        return targetShapeBorderColor;
+    }
+
+    public void setTargetShapeBorderColor(int targetShapeBorderColor) {
+        this.targetShapeBorderColor = targetShapeBorderColor;
+    }
+
+    public int getArrowColor() {
+        return arrowColor;
+    }
+
+    public void setArrowColor(int arrowColor) {
+        this.arrowColor = arrowColor;
+    }
+
     public Paint getPaint() {
         return mPaint;
     }
@@ -393,12 +542,12 @@ public class IntroLayout extends RelativeLayout {
         this.mPaint = paint;
     }
 
-    public Paint getTargetRectPaint() {
-        return targetRectPaint;
+    public Paint getTargetShapePaint() {
+        return targetShapePaint;
     }
 
-    public void setTargetRectPaint(Paint targetRectPaint) {
-        this.targetRectPaint = targetRectPaint;
+    public void setTargetShapePaint(Paint targetShapePaint) {
+        this.targetShapePaint = targetShapePaint;
     }
 
     public Paint getArrowPathPaint() {
@@ -422,6 +571,14 @@ public class IntroLayout extends RelativeLayout {
 
     private void setStrokeWidth(float strokeWidth) {
         this.strokeWidth = strokeWidth;
+    }
+
+    public int getHighlightAlpha() {
+        return highlightAlpha;
+    }
+
+    public void setHighlightAlpha(int highlightAlpha) {
+        this.highlightAlpha = highlightAlpha;
     }
     /* --- --- --- */
 }

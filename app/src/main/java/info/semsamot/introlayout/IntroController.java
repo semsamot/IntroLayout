@@ -21,6 +21,7 @@ package info.semsamot.introlayout;
 import android.app.Activity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.TextView;
 
 public class IntroController {
@@ -41,10 +42,22 @@ public class IntroController {
 
     public IntroController(Activity mActivity, int layoutResId) {
         this.mActivity = mActivity;
-        this.rootView = (ViewGroup) mActivity.getWindow().getDecorView().getRootView();
-
         this.layoutResId = layoutResId;
+
+        if (mActivity == null)
+        {
+            this.introLayout = null;
+            return;
+        }
+
         this.introLayout = (IntroLayout) View.inflate(mActivity, layoutResId, null);
+
+        /*Window window = mActivity.getWindow();
+        if (window == null) return;
+        View decorView = window.getDecorView();
+        if (decorView == null) return;
+        this.rootView = (ViewGroup) decorView.getRootView();*/
+        this.rootView = (ViewGroup) mActivity.getWindow().getDecorView().getRootView();
     }
 
     public void startShow()
