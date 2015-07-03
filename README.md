@@ -5,15 +5,22 @@ The missed `IntroLayout` for Android!
 ![Intro-Layout demo running on Android 4.4](art/introlayout_demo.png)
 
 Features
-===
+---
 - Arrow cursor drawer
 - Animate on target view
 - Full control over targets
 - Highly customizable!
 
 Usage
-===
-... (be patient)
+---
+See sample project or take a look at this snippet:
+
+```java
+IntroController introController = new IntroController(this);
+introController.setTargets(new View[]{btn1, btn2});
+introController.setMessages(new String[]{"This is a test.", "This is a sample."});
+introController.startShow();
+```
 
 Compatibility
 ===
@@ -21,7 +28,7 @@ Currently compatible with API Level 11+
 (will made compatible with 7+ in near future with the help of God).
 
 License
-===
+---
 ```
 Copyright 2014 semsamot
 

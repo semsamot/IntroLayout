@@ -32,6 +32,7 @@ import android.graphics.RectF;
 import android.graphics.Region;
 import android.os.Build;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
@@ -44,11 +45,8 @@ public class IntroLayout extends RelativeLayout {
 
     private static final String TAG = "info.semsamot.introlayout";
 
-    /*private static final int SHAPE_RECTANGLE = 0x01;
-    private static final int SHAPE_CIRCLE = 0x02;
-    private static final int SHAPE_HEXAGON = 0x03;*/
-
     public enum ShapeType {SHAPE_RECTANGLE, SHAPE_CIRCLE, SHAPE_HEXAGON}
+    public enum ContentLayoutPosition {TOP, BOTTOM, FLOAT}
 
     private static final long DEFAULT_ANIMATION_DURATION = 500;
     private static final int DEFAULT_OVERLAY_COLOR = 0xc7000000;
@@ -56,6 +54,9 @@ public class IntroLayout extends RelativeLayout {
     private ViewGroup contentLayout;
     private TextView txtContent;
     private Button btnNext, btnPrevious;
+
+    private ContentLayoutPosition contentLayoutDefaultPosition = ContentLayoutPosition.BOTTOM;
+    private ContentLayoutPosition contentLayoutCurrentPosition;
 
     private IntroTarget introTarget;
 
@@ -127,8 +128,14 @@ public class IntroLayout extends RelativeLayout {
         this.btnPrevious = (Button) findViewById(R.id.btn_previous);
     }
 
+    boolean isGfxInitiated;
     private void initGfx()
     {
+        if (isGfxInitiated)
+            return;
+
+        Log.d(TAG, "initGfx called.");
+
         this.mPaint = new Paint();
         mPaint.setStyle(Paint.Style.FILL);
 
@@ -153,8 +160,8 @@ public class IntroLayout extends RelativeLayout {
 
         if (this.targetRect != null)
         {
-            this.arrowPath = makeArrowPath();
             applyContentLayoutAlignment();
+            this.arrowPath = makeArrowPath();
         }
 
 
@@ -162,21 +169,23 @@ public class IntroLayout extends RelativeLayout {
         // because of Region.Op.DIFFERENCE is ignored on LAYER_TYPE_HARDWARE in API 11+
         if (Build.VERSION.SDK_INT >= 11)
             this.setLayerType(LAYER_TYPE_SOFTWARE, mPaint);
+
+        isGfxInitiated = true;
     }
 
     private Path makeArrowPath()
     {
         Path arrow = new Path();
 
+        int mContentLayoutEdge = contentLayoutCurrentPosition == ContentLayoutPosition.TOP ? 0 : getHeight();
         int mRight = getWidth();
-        int mBottom = getHeight();
         int mCenterX = mRight / 2;
-        int mCenterY = mBottom / 2;
+        int mCenterY = mContentLayoutEdge / 2;
 
         /* drawing arrow line */
 
         ptx1 = mCenterX;
-        pty1 = mBottom;
+        pty1 = mContentLayoutEdge;
 
         int leftGap = targetRect.left;
         int rightGap = mRight - targetRect.right;
@@ -192,21 +201,23 @@ public class IntroLayout extends RelativeLayout {
             ptx3 = targetRect.right + horizontalMargin;
         }
 
-        pty2 = (mBottom - targetRect.bottom) / 2;
+        int targetRectBottom = contentLayoutCurrentPosition == ContentLayoutPosition.TOP ?
+                targetRect.bottom : -targetRect.bottom;
+        pty2 = (mContentLayoutEdge + targetRectBottom) / 2;
         pty3 = targetRect.top + (targetRect.height()/2);
 
 
         if (isArrowCurve)
         {
             // Bezier Curve
-            arrow.moveTo(mCenterX, mBottom);
+            arrow.moveTo(mCenterX, mContentLayoutEdge);
             arrow.cubicTo(
                     ptx1, pty1,
                     ptx2, pty2,
                     ptx3, pty3);
         } else {
             // Straight Line
-            arrow.moveTo(ptx2, mBottom);
+            arrow.moveTo(ptx2, mContentLayoutEdge);
             arrow.lineTo(ptx2, pty3);
             arrow.lineTo(ptx3, pty3);
         }
@@ -293,7 +304,8 @@ public class IntroLayout extends RelativeLayout {
 
             canvas.drawColor(overlayColor);
 
-            canvas.drawPath(arrowPath, arrowPathPaint);
+            if (arrowPath != null)
+                canvas.drawPath(arrowPath, arrowPathPaint);
 
             if (isDebugDraw)
                 debugDraw(canvas, 30, degrees);
@@ -344,36 +356,9 @@ public class IntroLayout extends RelativeLayout {
         alphaAnimator.setDuration(repeatDuration).start();
     }
 
-    public boolean isArrowCurve() {
-        return isArrowCurve;
-    }
-
-    public void setArrowCurve(boolean isArrowCurve) {
-        this.isArrowCurve = isArrowCurve;
-    }
-
-    public boolean isDebugDraw() {
-        return isDebugDraw;
-    }
-
-    public void setDebugDraw(boolean isDebugDraw) {
-        this.isDebugDraw = isDebugDraw;
-    }
-
-    public ViewGroup getContentLayout() {
-        return contentLayout;
-    }
-
-    public TextView getTxtContent() {
-        return txtContent;
-    }
-
-    public Button getBtnNext() {
-        return btnNext;
-    }
-
-    public Button getBtnPrevious() {
-        return btnPrevious;
+    public void disableContentLayoutBackground() {
+        contentLayout.setBackgroundColor(0x00000000);
+        txtContent.setTextColor(Color.WHITE);
     }
 
     public IntroTarget getIntroTarget() {
@@ -383,19 +368,26 @@ public class IntroLayout extends RelativeLayout {
     public void setIntroTarget(IntroTarget introTarget) {
         this.introTarget = introTarget;
 
+        if (introTarget.arrowColor != -1)
+            setArrowColor(introTarget.arrowColor);
+        if (introTarget.arrowStrokeWidth != -1)
+            setArrowStrokeWidth(introTarget.arrowStrokeWidth);
+        if (introTarget.highlightColor != -1)
+            setTargetHighlightColor(introTarget.highlightColor);
+        if (introTarget.shapeBorderColor != -1)
+            setTargetShapeBorderColor(introTarget.shapeBorderColor);
+        if (introTarget.shapeType != null)
+            setTargetShapeType(introTarget.shapeType);
 
+        setTargetView(introTarget.view);
     }
 
-    public Rect getTargetRect() {
-        return targetRect;
-    }
-
-    public void setTargetRect(final View targetView) {
-        setTargetRect(targetView, true);
+    public void setTargetView(final View targetView) {
+        setTargetView(targetView, true);
     }
 
     @SuppressLint("NewApi")
-    public void setTargetRect(final View targetView, boolean waitForVisibleState)
+    public void setTargetView(final View targetView, boolean waitForVisibleState)
     {
         if (targetView == null) return;
 
@@ -405,7 +397,7 @@ public class IntroLayout extends RelativeLayout {
                     new ViewTreeObserver.OnGlobalLayoutListener() {
                 @Override
                 public void onGlobalLayout() {
-                    setTargetRect(targetView);
+                    setTargetView(targetView);
 
                     if (Build.VERSION.SDK_INT < 16)
                         targetView.getViewTreeObserver().removeGlobalOnLayoutListener(this);
@@ -420,14 +412,63 @@ public class IntroLayout extends RelativeLayout {
         }
     }
 
+    public Rect getTargetRect() {
+        return targetRect;
+    }
+
     public void setTargetRect(Rect targetRect) {
         this.targetRect = targetRect;
         setTargetPath();
 
         if (getWidth() != 0 && getHeight() != 0)
         {
-            this.arrowPath = makeArrowPath();
-            applyContentLayoutAlignment();
+            if (contentLayoutDefaultPosition == ContentLayoutPosition.FLOAT) {
+                Rect screenLeft = new Rect();
+                Rect screenRight = new Rect();
+                Rect screenTop = new Rect();
+                Rect screenBottom = new Rect();
+
+                getGlobalVisibleRect(screenLeft);
+                getGlobalVisibleRect(screenRight);
+                getGlobalVisibleRect(screenTop);
+                getGlobalVisibleRect(screenBottom);
+
+                screenLeft.right -= screenLeft.width() / 2;
+                screenRight.left = screenRight.width() / 2;
+                screenTop.bottom -= screenTop.height() / 2;
+                screenBottom.top = screenBottom.height() / 2;
+
+                boolean isInLeft, isInRight, isInTop, isInBottom;
+
+                isInLeft = screenLeft.intersect(targetRect);
+                isInRight = screenRight.intersect(targetRect);
+                isInTop = screenTop.intersect(targetRect);
+                isInBottom = screenBottom.intersect(targetRect);
+
+
+                if (isInLeft && isInRight && isInTop) {
+                    contentLayout.getLayoutParams().width = getWidth();
+                    contentLayout.setX(0);
+                    contentLayout.setY(targetRect.bottom);
+                } else if (isInLeft && isInRight && isInBottom) {
+                    contentLayout.getLayoutParams().width = getWidth();
+                    contentLayout.setX(0);
+                    contentLayout.setY(targetRect.top - contentLayout.getHeight());
+                } else if (isInLeft) {
+                    contentLayout.getLayoutParams().width = getWidth() - (targetRect.right + 50);
+                    contentLayout.setX(targetRect.right + 50);
+                    contentLayout.setY(targetRect.top);
+                } else if (isInRight) {
+                    contentLayout.getLayoutParams().width = getWidth() - (getWidth() - (targetRect.left - 50));
+                    contentLayout.setX(0);
+                    contentLayout.setY(targetRect.top);
+                }
+
+                disableContentLayoutBackground();
+            } else {
+                applyContentLayoutAlignment();
+                this.arrowPath = makeArrowPath();
+            }
         }
 
         postInvalidate();
@@ -491,15 +532,52 @@ public class IntroLayout extends RelativeLayout {
     {
         Rect contentRect = new Rect();
         contentLayout.getGlobalVisibleRect(contentRect);
-        LayoutParams lp = (LayoutParams) contentLayout.getLayoutParams();
+        RelativeLayout.LayoutParams lp = (RelativeLayout.LayoutParams) contentLayout.getLayoutParams();
+
         if (contentRect.intersect(targetRect))
         {
             lp.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM, 0);
             lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+            contentLayoutCurrentPosition = ContentLayoutPosition.TOP;
         } else {
             lp.addRule(RelativeLayout.ALIGN_PARENT_TOP, 0);
             lp.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
+            contentLayoutCurrentPosition = ContentLayoutPosition.BOTTOM;
         }
+
+        contentLayout.setLayoutParams(lp);
+    }
+
+    public boolean isArrowCurve() {
+        return isArrowCurve;
+    }
+
+    public void setArrowCurve(boolean isArrowCurve) {
+        this.isArrowCurve = isArrowCurve;
+    }
+
+    public boolean isDebugDraw() {
+        return isDebugDraw;
+    }
+
+    public void setDebugDraw(boolean isDebugDraw) {
+        this.isDebugDraw = isDebugDraw;
+    }
+
+    public ViewGroup getContentLayout() {
+        return contentLayout;
+    }
+
+    public TextView getTxtContent() {
+        return txtContent;
+    }
+
+    public Button getBtnNext() {
+        return btnNext;
+    }
+
+    public Button getBtnPrevious() {
+        return btnPrevious;
     }
 
     public int getOverlayColor() {
@@ -508,6 +586,14 @@ public class IntroLayout extends RelativeLayout {
 
     public void setOverlayColor(int overlayColor) {
         this.overlayColor = overlayColor;
+    }
+
+    public ShapeType getTargetShapeType() {
+        return targetShapeType;
+    }
+
+    public void setTargetShapeType(ShapeType targetShapeType) {
+        this.targetShapeType = targetShapeType;
     }
 
     public int getTargetHighlightColor() {
@@ -532,6 +618,14 @@ public class IntroLayout extends RelativeLayout {
 
     public void setArrowColor(int arrowColor) {
         this.arrowColor = arrowColor;
+    }
+
+    public int getArrowStrokeWidth() {
+        return arrowStrokeWidth;
+    }
+
+    public void setArrowStrokeWidth(int arrowStrokeWidth) {
+        this.arrowStrokeWidth = arrowStrokeWidth;
     }
 
     public Paint getPaint() {

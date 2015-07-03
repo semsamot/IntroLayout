@@ -31,7 +31,7 @@ public class IntroController {
     private Activity mActivity;
     private int layoutResId;
     private ViewGroup rootView;
-    private View[] targets;
+    private IntroTarget[] targets;
     private String[] messages;
     private OnShowChangeListener onShowChangeListener;
     private int currentShowIndex = -1;
@@ -51,12 +51,6 @@ public class IntroController {
         }
 
         this.introLayout = (IntroLayout) View.inflate(mActivity, layoutResId, null);
-
-        /*Window window = mActivity.getWindow();
-        if (window == null) return;
-        View decorView = window.getDecorView();
-        if (decorView == null) return;
-        this.rootView = (ViewGroup) decorView.getRootView();*/
         this.rootView = (ViewGroup) mActivity.getWindow().getDecorView().getRootView();
     }
 
@@ -94,7 +88,7 @@ public class IntroController {
         if (currentShowIndex < messages.length)
             ((TextView) introLayout.findViewById(R.id.txt_content)).setText(messages[currentShowIndex]);
 
-        introLayout.setTargetRect(targets[currentShowIndex]);
+        introLayout.setIntroTarget(targets[currentShowIndex]);
 
         if (onShowChangeListener != null)
             onShowChangeListener.afterShowChanged(currentShowIndex);
@@ -117,7 +111,7 @@ public class IntroController {
         if (currentShowIndex < messages.length)
             ((TextView) introLayout.findViewById(R.id.txt_content)).setText(messages[currentShowIndex]);
 
-        introLayout.setTargetRect(targets[currentShowIndex]);
+        introLayout.setIntroTarget(targets[currentShowIndex]);
 
         if (onShowChangeListener != null)
             onShowChangeListener.afterShowChanged(currentShowIndex);
@@ -127,12 +121,19 @@ public class IntroController {
         return introLayout;
     }
 
-    public View[] getTargets() {
+    public IntroTarget[] getTargets() {
         return targets;
     }
 
-    public void setTargets(View[] targets) {
+    public void setTargets(IntroTarget[] targets) {
         this.targets = targets;
+    }
+
+    public void setTargets(View[] targetViews) {
+        this.targets = new IntroTarget[targetViews.length];
+        for (int i=0; i < targetViews.length; i++) {
+            this.targets[i] = new IntroTarget(targetViews[i]);
+        }
     }
 
     public String[] getMessages() {
